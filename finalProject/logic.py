@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QMainWindow
 from gui import Ui_libraryCatalog
 
 
-def gen_call_back_num(genre):
+def gen_call_back_num(genre: str) -> int:
     """
     Generate a random call back number based on genre
     :param genre:
@@ -31,24 +31,34 @@ def gen_call_back_num(genre):
     return random.randint(900, 1000)
 
 
+def contains_char(text: str, lst: list) -> bool:
+    """
+    :param text:
+    :param lst:
+    :return bool:
+
+    if a "forbidden" character from lst is found in text, return True. Otherwise, return False.
+    """
+
+    for i in range(len(lst)):
+        if lst[i] in text:
+            return True
+    return False
+
+
+
 class Logic(QMainWindow, Ui_libraryCatalog):
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Main setup
 
-        Changes visibility for bookLabel, bookDropDown, and Back button
-        Adds genres to the genreDropDown box and sets default to -1 (no option chosen)
+        Changes visibility for errorLabel and sets index to -1 for both combo boxes
+        Adds genres to the genreDropDown box
         Adds any books in the books.csv file to the bookDropDown box
-        Connects buttons enter, view, and back buttons to functions
+        Connects enter, view, and back buttons
         """
         super().__init__()
         self.setupUi(self)
-
-        #setting up visibility for bookLabel, bookDropDown, and back Button
-        self.bookLabel.setVisible(False)
-        self.errorLabel.setText("")
-        self.bookDropDown.setVisible(False)
-        self.backButton.setVisible(False)
 
         #adding genres to genreDropDown and setting default values for both combo boxes
         self.genreDropDown.addItems(["CompSci Info General works",
@@ -64,15 +74,16 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                 next(file)
                 for line in file:
                     title = line.split(',')[0]
-                    author = line.split(',')[1]
 
-                    self.bookDropDown.addItem(f"{title} by {author}")
-        #self.bookDropDown.clear()
+                    self.bookDropDown.addItem(title)
+
+        self.bookDropDown.setCurrentIndex(-1)
 
         #connecting buttons to functions
         self.enterButton.clicked.connect(lambda: self.enter())
         self.viewButton.clicked.connect(lambda: self.view())
         self.backButton.clicked.connect(lambda: self.back())
+        self.bookViewButton.clicked.connect(lambda: self.bookView())
 
 
     # enter
@@ -81,10 +92,21 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         Takes in user input for title, author, and genre,
         and adds them to bookDropDown box as well as books.csv, along with a call back number
 
-        If the title or author is empty, or the author entered is a number, or no genre was chosen,
+        If the title or author is empty, or the author entered is a number,
+        or no genre was chosen,
+        or any of the text inputs contain a "forbidden" character ,
         show error label and clear input.
         """
-        if self.titleInput.text() == "" or self.authorInput.text() == "" or self.authorInput.text().isdigit() or self.genreDropDown.currentIndex() == -1:
+        chars = ["<", ">", "@", "#", "$", "%", "^", "~" "*", "(", ")"]
+        title_chars = contains_char(self.titleInput.text(), chars)
+        author_chars = contains_char(self.authorInput.text(), chars)
+
+        if (self.titleInput.text() == ""
+        or self.authorInput.text() == ""
+        or self.authorInput.text().isdigit()
+        or self.genreDropDown.currentIndex() == -1
+        or title_chars or author_chars):
+
             self.errorLabel.setText("Please enter a title, author, and select a genre \n" + "Note: DO NOT ENTER NUMBERS FOR AUTHOR")
             # clear all input
             self.titleInput.clear()
@@ -100,17 +122,17 @@ class Logic(QMainWindow, Ui_libraryCatalog):
             genre = self.genreDropDown.currentIndex()
             call_back = gen_call_back_num(genre)
 
-            with open("books.csv", "a", newline='') as file:
+            with open("books.csv", "a+", newline='') as file:
                 csv_writer = csv.writer(file)
 
                 if os.path.getsize("books.csv") == 0:
                     csv_writer.writerow(["Title", "Author", "Genre", "Callback"])
 
-                # sorting and writing to csv
+                # writing current book info to csv
                 csv_writer.writerow([title, author, str(self.genreDropDown.currentText()).strip(), call_back])
 
             # add book to bookDropDown
-            self.bookDropDown.addItem(f"{title} by {author}")
+            self.bookDropDown.addItem(title)
 
             # clear all input
             self.titleInput.clear()
@@ -124,25 +146,14 @@ class Logic(QMainWindow, Ui_libraryCatalog):
     # view
     def view(self):
         """
-        Change Screens to look at current books in the books.csv file
+        Change Screens to bookView window
         """
+        self.windows.setCurrentIndex(1)
         self.bookDropDown.setCurrentIndex(-1)
-
-        # hide widgets on main page
-        self.titleLabel.setVisible(False)
-        self.titleInput.setVisible(False)
-        self.authorLabel.setVisible(False)
-        self.authorInput.setVisible(False)
-        self.genreLabel.setVisible(False)
-        self.genreDropDown.setVisible(False)
-        self.enterButton.setVisible(False)
-        self.viewButton.setVisible(False)
-        self.errorLabel.setText("")
-
-        # show widgets for book viewing
-        self.bookLabel.setVisible(True)
-        self.bookDropDown.setVisible(True)
-        self.backButton.setVisible(True)
+        self.bookTitleLabel.setText("")
+        self.bookAuthorLabel.setText("")
+        self.bookGenreLabel.setText("")
+        self.bookCallLabel.setText("")
 
 
     # back
@@ -151,16 +162,26 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         From the book viewing screen, return to the main screen
         """
         # back to main book catalog page
-        self.titleLabel.setVisible(True)
-        self.titleInput.setVisible(True)
-        self.authorLabel.setVisible(True)
-        self.authorInput.setVisible(True)
-        self.genreLabel.setVisible(True)
-        self.genreDropDown.setVisible(True)
-        self.enterButton.setVisible(True)
-        self.viewButton.setVisible(True)
+        self.titleInput.clear()
+        self.authorInput.clear()
+        self.genreDropDown.setCurrentIndex(-1)
+        self.windows.setCurrentIndex(0)
         self.errorLabel.setText("")
 
-        self.bookLabel.setVisible(False)
-        self.bookDropDown.setVisible(False)
-        self.backButton.setVisible(False)
+        # set focus to titleInput
+        self.titleInput.setFocus()
+
+
+    def bookView(self):
+        if self.bookDropDown.currentIndex() != -1:
+            self.bookErrorLabel.setText("")
+            with open("books.csv", "r") as file:
+                for line in file:
+                    if self.bookDropDown.currentText() in line:
+                        self.bookTitleLabel.setText(f"Title: {line.split(',')[0]}")
+                        self.bookAuthorLabel.setText(f"Author: {line.split(',')[1]}")
+                        self.bookGenreLabel.setText(f"Genre: {line.split(',')[2]}")
+                        self.bookCallLabel.setText(f"Callback: {line.split(',')[3]}")
+        else:
+            self.bookErrorLabel.setText("Please select a book")
+
