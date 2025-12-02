@@ -1,4 +1,5 @@
 import csv, os, random
+import pandas as pd
 
 from PyQt6.QtWidgets import QMainWindow
 from gui import Ui_libraryCatalog
@@ -6,7 +7,7 @@ from gui import Ui_libraryCatalog
 
 def gen_call_back_num(genre: str) -> int:
     """
-    Generate a random call back number based on genre
+    Generate a random call back number/code based on genre
     :param genre:
     :return: int
     """
@@ -48,14 +49,19 @@ def contains_char(text: str, lst: list) -> bool:
 
 
 class Logic(QMainWindow, Ui_libraryCatalog):
+    # variable for book info visibility
+    bookVis = False
+
     def __init__(self) -> None:
         """
         Main setup
 
-        Changes visibility for errorLabel and sets index to -1 for both combo boxes
+        Sets index to -1 for both combo boxes
         Adds genres to the genreDropDown box
         Adds any books in the books.csv file to the bookDropDown box
-        Connects enter, view, and back buttons
+        Connects buttons to functions
+
+        :return: None
         """
         super().__init__()
         self.setupUi(self)
@@ -66,6 +72,7 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         "Language", "Science", "Technology", "Arts and recreation",
         "Literature", "History and geography"])
 
+        # set index to -1 for the genreDropDown box
         self.genreDropDown.setCurrentIndex(-1)
 
         # add current books in books.csv file to bookDropDown (if csv file is NOT empty)
@@ -76,7 +83,10 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                     title = line.split(',')[0]
 
                     self.bookDropDown.addItem(title)
+        else:
+            self.bookDropDown.clear()
 
+        # set index to -1
         self.bookDropDown.setCurrentIndex(-1)
 
         #connecting buttons to functions
@@ -84,30 +94,37 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         self.viewButton.clicked.connect(lambda: self.view())
         self.backButton.clicked.connect(lambda: self.back())
         self.bookViewButton.clicked.connect(lambda: self.bookView())
+        self.borrowButton.clicked.connect(lambda: self.borrow())
 
 
     # enter
-    def enter(self):
+    def enter(self)-> None:
         """
         Takes in user input for title, author, and genre,
-        and adds them to bookDropDown box as well as books.csv, along with a call back number
+        and adds them to bookDropDown box as well as books.csv, along with a generated call back number
 
         If the title or author is empty, or the author entered is a number,
-        or no genre was chosen,
-        or any of the text inputs contain a "forbidden" character ,
+        or no genre was chosen, or any of the text inputs contain a "forbidden" character ,
         show error label and clear input.
+
+        :return: None
         """
+
+        # checking for forbidden characters
         chars = ["<", ">", "@", "#", "$", "%", "^", "~" "*", "(", ")"]
         title_chars = contains_char(self.titleInput.text(), chars)
         author_chars = contains_char(self.authorInput.text(), chars)
 
+        # showing error label and clearing input
         if (self.titleInput.text() == ""
         or self.authorInput.text() == ""
         or self.authorInput.text().isdigit()
         or self.genreDropDown.currentIndex() == -1
         or title_chars or author_chars):
 
-            self.errorLabel.setText("Please enter a title, author, and select a genre \n" + "Note: DO NOT ENTER NUMBERS FOR AUTHOR")
+            self.errorLabel.setText("Please enter a title, author, and select a genre \n"
+                                    + "Note: DO NOT ENTER NUMBERS FOR AUTHOR\n"
+                                    + "Avoid invalid chars such as '@#<>~*")
             # clear all input
             self.titleInput.clear()
             self.authorInput.clear()
@@ -116,7 +133,7 @@ class Logic(QMainWindow, Ui_libraryCatalog):
             # set focus to titleInput
             self.titleInput.setFocus()
 
-        else:
+        else: # adding to list of books
             title = self.titleInput.text().strip()
             author = self.authorInput.text().strip()
             genre = self.genreDropDown.currentIndex()
@@ -126,10 +143,10 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                 csv_writer = csv.writer(file)
 
                 if os.path.getsize("books.csv") == 0:
-                    csv_writer.writerow(["Title", "Author", "Genre", "Callback"])
+                    csv_writer.writerow(["Title", "Author", "Genre", "Callback", "Status"])
 
                 # writing current book info to csv
-                csv_writer.writerow([title, author, str(self.genreDropDown.currentText()).strip(), call_back])
+                csv_writer.writerow([title, author, str(self.genreDropDown.currentText()).strip(), call_back, "Available"])
 
             # add book to bookDropDown
             self.bookDropDown.addItem(title)
@@ -144,9 +161,11 @@ class Logic(QMainWindow, Ui_libraryCatalog):
             self.titleInput.setFocus()
 
     # view
-    def view(self):
+    def view(self)-> None:
         """
         Change Screens to bookView window
+
+        :return: None
         """
         self.windows.setCurrentIndex(1)
         self.bookDropDown.setCurrentIndex(-1)
@@ -154,25 +173,37 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         self.bookAuthorLabel.setText("")
         self.bookGenreLabel.setText("")
         self.bookCallLabel.setText("")
+        self.availableLabel.setText("")
 
 
     # back
-    def back(self):
+    def back(self)->None:
         """
         From the book viewing screen, return to the main screen
+
+        :return: None
         """
         # back to main book catalog page
-        self.titleInput.clear()
-        self.authorInput.clear()
-        self.genreDropDown.setCurrentIndex(-1)
         self.windows.setCurrentIndex(0)
         self.errorLabel.setText("")
 
         # set focus to titleInput
         self.titleInput.setFocus()
 
+        #disable checkout button
+        self.borrowButton.setEnabled(False)
 
-    def bookView(self):
+        # clear error text
+        self.bookErrorLabel.setText("")
+
+
+    def bookView(self)->None:
+        """
+        After user selects book and clicks 'view' button, display book information
+        Enables the 'borrow/checkout' button once book info is displayed
+        
+        :return: None
+        """
         if self.bookDropDown.currentIndex() != -1:
             self.bookErrorLabel.setText("")
             with open("books.csv", "r") as file:
@@ -182,6 +213,33 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                         self.bookAuthorLabel.setText(f"Author: {line.split(',')[1]}")
                         self.bookGenreLabel.setText(f"Genre: {line.split(',')[2]}")
                         self.bookCallLabel.setText(f"Callback: {line.split(',')[3]}")
+                        self.availableLabel.setText(f"Status: {line.split(',')[4]}")
+
+
+                    Logic.bookVis = True
+                    if Logic.bookVis:
+                        self.borrowButton.setEnabled(True)
         else:
             self.bookErrorLabel.setText("Please select a book")
 
+
+    def borrow(self)->None:
+        """
+        Changes availability of book
+        :return: None
+        """
+
+        df = pd.read_csv("books.csv")
+
+        with (open("books.csv", "r") as file):
+            for line in file:
+                if self.bookDropDown.currentText() in line:
+
+                    if line.split(',')[4] == "Available\n":
+                        df.loc[self.bookDropDown.currentIndex(), "Status"]= "Signed-Out"
+                        df.to_csv("books.csv", index=False)
+                        self.availableLabel.setText("Status: Signed-Out")
+                    else:
+                        df.loc[self.bookDropDown.currentIndex(), "Status"] = "Available"
+                        df.to_csv("books.csv", index=False)
+                        self.availableLabel.setText("Status: Available")
