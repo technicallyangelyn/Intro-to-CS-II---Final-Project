@@ -142,11 +142,17 @@ class Logic(QMainWindow, Ui_libraryCatalog):
             with open("books.csv", "a+", newline='') as file:
                 csv_writer = csv.writer(file)
 
+                # writing header if the csv file is empty
                 if os.path.getsize("books.csv") == 0:
                     csv_writer.writerow(["Title", "Author", "Genre", "Callback", "Status"])
 
                 # writing current book info to csv
                 csv_writer.writerow([title, author, str(self.genreDropDown.currentText()).strip(), call_back, "Available"])
+
+            # sort all the information in the csv file in ascending order of the Callback Number
+            df = pd.read_csv("books.csv")
+            df_sorted = df.sort_values(by='Callback', ascending=True)
+            df_sorted.to_csv("books.csv", index=False)
 
             # add book to bookDropDown
             self.bookDropDown.addItem(title)
@@ -185,6 +191,11 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         """
         # back to main book catalog page
         self.windows.setCurrentIndex(0)
+
+        # clear all input
+        self.titleInput.clear()
+        self.authorInput.clear()
+        self.genreDropDown.setCurrentIndex(-1)
         self.errorLabel.setText("")
 
         # set focus to titleInput
@@ -192,9 +203,6 @@ class Logic(QMainWindow, Ui_libraryCatalog):
 
         #disable checkout button
         self.borrowButton.setEnabled(False)
-
-        # clear error text
-        self.bookErrorLabel.setText("")
 
 
     def bookView(self)->None:
@@ -216,6 +224,7 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                         self.availableLabel.setText(f"Status: {line.split(',')[4]}")
 
 
+                    # enabling sign-out/return button
                     Logic.bookVis = True
                     if Logic.bookVis:
                         self.borrowButton.setEnabled(True)
@@ -233,6 +242,8 @@ class Logic(QMainWindow, Ui_libraryCatalog):
 
         with (open("books.csv", "r") as file):
             for line in file:
+
+                # if the title is found in the current line, change the status accordingly
                 if self.bookDropDown.currentText() in line:
 
                     if line.split(',')[4] == "Available\n":
