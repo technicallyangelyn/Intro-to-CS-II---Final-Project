@@ -149,11 +149,6 @@ class Logic(QMainWindow, Ui_libraryCatalog):
                 # writing current book info to csv
                 csv_writer.writerow([title, author, str(self.genreDropDown.currentText()).strip(), call_back, "Available"])
 
-            # sort all the information in the csv file in ascending order of the Callback Number
-            df = pd.read_csv("books.csv")
-            df_sorted = df.sort_values(by='Callback', ascending=True)
-            df_sorted.to_csv("books.csv", index=False)
-
             # add book to bookDropDown
             self.bookDropDown.addItem(title)
 
@@ -180,6 +175,7 @@ class Logic(QMainWindow, Ui_libraryCatalog):
         self.bookGenreLabel.setText("")
         self.bookCallLabel.setText("")
         self.availableLabel.setText("")
+        self.bookErrorLabel.setText("")
 
 
     # back
